@@ -50,6 +50,7 @@ async def list_public_properties(
     imobiliarias = db.get("imobiliarias", {})
     
     # Filtrar apenas imóveis disponíveis ou em negociação
+
     available_statuses = [PropertyStatus.AVAILABLE.value, PropertyStatus.NEGOTIATION.value]
     
     # NOVO: Filtrar apenas imóveis de imobiliárias/corretores ATIVOS

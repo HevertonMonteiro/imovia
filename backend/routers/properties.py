@@ -72,7 +72,21 @@ async def list_properties(
     # Paginar
     properties = properties[offset:offset + limit]
 
-    return [PropertyResponse(**p) for p in properties]
+    # Garantir campos obrigatórios do schema (evita ValidationError quando seed/DB
+    # não popula description/address/state)
+    normalized = []
+    for p in properties:
+        p = dict(p)
+        if "description" not in p or p.get("description") is None:
+            p["description"] = ""
+        if "address" not in p or p.get("address") is None:
+            p["address"] = ""
+        if "state" not in p or p.get("state") is None:
+            p["state"] = ""
+        normalized.append(p)
+
+    return [PropertyResponse(**p) for p in normalized]
+
 
 
 @router.get("/{property_id}", response_model=PropertyResponse)
@@ -98,7 +112,7 @@ async def create_property(
     request: Request
 ):
     db = get_memory_db()
-    user_info = get_current_user_from_request(request)
+    user_info = get_current_user_from_request(request) or {}
     user_id = user_info.get("user_id")
     imobiliaria_id = user_info.get("imobiliaria_id")
 

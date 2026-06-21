@@ -9,8 +9,10 @@ import {
   Loader2,
   AlertTriangle,
   Building2,
-  ArrowRight
+  ArrowRight,
+  MessageSquare
 } from 'lucide-react'
+
 import { leadsAPI } from '../services/api'
 
 export default function Leads() {
@@ -139,6 +141,16 @@ export default function Leads() {
                     <ArrowRight className="w-4 h-4" />
                     Ver imóvel
                   </button>
+
+                  <button
+                    type="button"
+                    onClick={() => navigate(`/chat?property_id=${lead.property_id}`)}
+                    className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
+                  >
+                    <MessageSquare className="w-4 h-4" />
+                    Abrir chat
+                  </button>
+
                   <button
                     type="button"
                     className="inline-flex items-center gap-2 rounded-full border border-gray-200 bg-white px-4 py-2 text-sm font-semibold text-gray-700 hover:bg-gray-50"
@@ -146,6 +158,7 @@ export default function Leads() {
                     <Mail className="w-4 h-4" />
                     Contato
                   </button>
+
                 </div>
               </div>
             </motion.div>

@@ -73,7 +73,12 @@ async def list_leads(
     
     # Filtrar por imóvel
     if property_id:
-        leads = [l for l in leads if l.get("imovel_id") == property_id]
+        # Compat: preferir property_id (schema atual) e cair no legado imovel_id
+        leads = [
+            l for l in leads
+            if (l.get("property_id") == property_id) or (l.get("imovel_id") == property_id)
+        ]
+
     
     # Filtrar por corretor
     if corretor_id:
@@ -88,8 +93,19 @@ async def list_leads(
     
     # Paginar
     leads = leads[offset:offset + limit]
-    
+
+    # Compat: garantir campos obrigatórios do schema
+    for l in leads:
+        # imobiliaria_id no schema é obrigatória (string)
+        if not l.get("imobiliaria_id"):
+            l["imobiliaria_id"] = "default_imobiliaria"
+        if not l.get("property_id") and l.get("imovel_id"):
+            l["property_id"] = l.get("imovel_id")
+        if not l.get("client_name"):
+            l["client_name"] = ""
+
     return [LeadResponse.model_validate(l) for l in leads]
+
 
 
 @router.get("/inteligente", response_model=List[LeadWithIntelligence])
@@ -154,7 +170,16 @@ async def get_lead(lead_id: str, current_user_id: str = Depends(get_current_user
     if lead.get("user_id") != current_user_id:
         raise HTTPException(status_code=403, detail="Acesso negado")
     
+    # Compat: garantir campos obrigatórios do schema
+    if not lead.get("imobiliaria_id"):
+        lead["imobiliaria_id"] = "default_imobiliaria"
+    if not lead.get("property_id") and lead.get("imovel_id"):
+        lead["property_id"] = lead.get("imovel_id")
+    if not lead.get("client_name"):
+        lead["client_name"] = ""
+
     return LeadResponse(**lead)
+
 
 
 @router.get("/{lead_id}/inteligente")
@@ -203,6 +228,11 @@ async def create_lead(
     lead: LeadCreate,
     current_user_id: str = Depends(get_current_user_id)
 ):
+    # Normaliza campos opcionais que podem vir como null
+    if lead.client_email is None:
+        # LeadBase exige client_email? (no schema é Optional)
+        pass
+
     db = get_memory_db()
     imobiliaria_id = None
     
@@ -217,25 +247,48 @@ async def create_lead(
     
     lead_id = generate_lead_id()
     now = str(datetime.now())
-    
+
     new_lead = {
         "id": lead_id,
         "user_id": current_user_id,
-        "cliente_id": lead.client_id,
-        "imovel_id": lead.property_id,
-        "corretor_id": lead.corretor_id,
-        "imobiliaria_id": imobiliaria_id,
         "client_name": lead.client_name,
+        "property_id": lead.property_id,
         "client_email": lead.client_email,
         "client_phone": lead.client_phone,
         "message": lead.message,
         "source": lead.source,
         "status_contato": lead.status_contato,
+        "imobiliaria_id": imobiliaria_id,
         "data_criacao": now,
-        "data_contato": None
+        "data_contato": None,
+        "corretor_id": lead.corretor_id,
+
+        # compat p/ possíveis campos no front/legado
+        "created_at": now,
+
+        # dados de inteligência
+        "preferences": None,
+        "properties_viewed": [],
+
+        # legacy fields (kept for compatibility)
+        "client_id": lead.client_id,
+        "cliente_id": lead.client_id,
+        "imovel_id": lead.property_id,
     }
+
+
+    # ensure required schema fields exist for LeadResponse
+    new_lead.setdefault("imobiliaria_id", imobiliaria_id)
+    new_lead.setdefault("property_id", lead.property_id)
+    new_lead.setdefault("client_name", lead.client_name)
+    new_lead.setdefault("client_email", lead.client_email)
+    new_lead.setdefault("client_phone", lead.client_phone)
+    new_lead.setdefault("message", lead.message)
+    new_lead.setdefault("source", lead.source)
+    new_lead.setdefault("status_contato", lead.status_contato)
     
     db["leads"][lead_id] = new_lead
+
     
     # Atualizar contagem de leads do imóvel
     property = db["properties"].get(lead.property_id)

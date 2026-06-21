@@ -46,10 +46,15 @@ app.include_router(leads.router, prefix="/leads", tags=["Leads"])
 app.include_router(dashboard.router, prefix="/dashboard", tags=["Dashboard"])
 app.include_router(ai.router, prefix="/ai", tags=["IA"])
 app.include_router(corretores.router, prefix="/corretores", tags=["Corretores"])
+from routers.chat import router as chat_router
+
 app.include_router(imobiliarias.router, prefix="/imobiliarias", tags=["Imobiliárias"])
 
 # Router público (Área do Cliente)
 app.include_router(public.router, prefix="/public", tags=["Área do Cliente"])
+
+app.include_router(chat_router, prefix="/chat", tags=["Chat"])
+
 
 
 @app.get("/")

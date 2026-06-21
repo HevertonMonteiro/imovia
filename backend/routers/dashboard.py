@@ -30,6 +30,9 @@ async def get_dashboard_stats(current_user_id: str = Depends(get_current_user_id
     active_properties = len([p for p in properties if p.get("status") == "disponível"])
     sold_properties = len([p for p in properties if p.get("status") == "vendido"])
     
+    # Imóveis em negociação
+    in_negotiation_properties = len([p for p in properties if p.get("status") == "em_negociação"])
+    
     # Estatísticas de clientes
     clients = [c for c in db["clients"].values() if c.get("user_id") == current_user_id]
     total_clients = len(clients)
@@ -77,7 +80,8 @@ async def get_advanced_stats(current_user_id: str = Depends(get_current_user_id)
     total_properties = len(properties)
     active_properties = len([p for p in properties if p.get("status") == "disponível"])
     sold_properties = len([p for p in properties if p.get("status") == "vendido"])
-    in_negotiation_properties = len([p for p in properties if p.get("status") == "em_negciação"])
+    
+    in_negotiation_properties = len([p for p in properties if p.get("status") == "em_negociação"])
     
     # Estatísticas de clientes
     clients = [c for c in db["clients"].values() if c.get("user_id") == current_user_id]
@@ -190,7 +194,8 @@ async def get_corretor_stats(
     total_properties = len(properties)
     active_properties = len([p for p in properties if p.get("status") == "disponível"])
     sold_properties = len([p for p in properties if p.get("status") == "vendido"])
-    in_negotiation = len([p for p in properties if p.get("status") == "em_negciação"])
+    in_negotiation = len([p for p in properties if p.get("status") == "em_negociação"])
+    
     
     # Total de visualizações e cliques nos imóveis do corretor
     total_views = sum(p.get("views", 0) for p in properties)

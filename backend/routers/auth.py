@@ -34,22 +34,21 @@ def get_invitation_token(email: str, user_type: str, imobiliaria_id: Optional[st
 
 @router.post("/register", response_model=TokenResponse)
 async def register(
-    email: str = Query(...),
-    password: str = Query(...),
-    name: str = Query(...),
-    tipo: str = Query(default="cliente")
+    user: UserCreate,
+    tipo: str = "cliente"
 ):
+
     db = get_memory_db()
-    
+
     # Verificar se usuário já existe
     for existing_user in db["users"].values():
-        if existing_user["email"] == email:
+        if existing_user.get("email") == user.email:
             raise HTTPException(status_code=400, detail="Email já cadastrado")
-    
+
     # Criar novo usuário
     user_id = generate_user_id()
-    hashed_password = get_password_hash(password)
-    
+    hashed_password = get_password_hash(user.password)
+
     # Vinculação especial para admin geral
     imobiliaria_id = None
     if tipo == "admin":
@@ -58,11 +57,11 @@ async def register(
     elif tipo == "corretor":
         # Corretor precisa de uma imobiliária (será vinculada depois)
         imobiliaria_id = None
-    
+
     new_user = {
         "id": user_id,
-        "email": email,
-        "name": name,
+        "email": user.email,
+        "name": user.name,
         "password": hashed_password,
         "tipo": tipo,
         "imobiliaria_id": imobiliaria_id,
@@ -77,17 +76,18 @@ async def register(
     code = generate_verification_code()
     db["verification_codes"][user_id] = {
         "code": code,
-        "email": email,
+        "email": user.email,
         "expires": str(datetime.now())  # TODO: adicionar 10 minutos
     }
     
     # TODO: Enviar email (simulado no console)
-    print(f"📧 Código de verificação para {email}: {code}")
+    print(f"📧 Código de verificação para {user.email}: {code}")
     
     # Criar token
+
     access_token = create_access_token(data={
         "sub": user_id,
-        "email": email,
+        "email": user.email,
         "tipo": new_user["tipo"],
         "imobiliaria_id": imobiliaria_id
     })
@@ -96,8 +96,8 @@ async def register(
         access_token=access_token,
         user=UserResponse(
             id=user_id,
-            email=email,
-            name=name,
+            email=user.email,
+            name=user.name,
             tipo=UserRole(tipo),
             imobiliaria_id=imobiliaria_id,
             ativo=True,
@@ -436,6 +436,89 @@ async def get_permissions(current_user: dict = Depends(get_current_user)):
         }
     
     return permissions
+
+
+# ===== PERFIL DO USUÁRIO =====
+
+from pydantic import BaseModel
+
+
+class ProfileUpdate(BaseModel):
+    name: Optional[str] = None
+    phone: Optional[str] = None
+
+
+@router.put("/profile", response_model=UserResponse)
+async def update_profile(
+    profile: ProfileUpdate,
+    current_user: dict = Depends(get_current_user)
+):
+    """Atualiza informações básicas do usuário logado."""
+
+
+@router.put("/profile", include_in_schema=False)
+async def _update_profile_deprecated(profile: ProfileUpdate, current_user: dict = Depends(get_current_user)):
+    """Compatibilidade interna (mantida por segurança)."""
+    return await update_profile(profile=profile, current_user=current_user)
+
+
+@router.put("/profile", response_model=UserResponse)
+async def update_profile_alias(
+    profile: ProfileUpdate,
+    current_user: dict = Depends(get_current_user)
+):
+    """Alias legado para o frontend (PUT /auth/profile)."""
+    db = get_memory_db()
+    user_id = current_user.get("sub")
+    user = db["users"].get(user_id)
+
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+
+    update_data = profile.model_dump(exclude_none=True)
+
+    if "name" in update_data:
+        user["name"] = update_data["name"]
+    if "phone" in update_data:
+        user["phone"] = update_data["phone"]
+
+    db["users"][user_id] = user
+
+    return UserResponse(
+        id=user["id"],
+        email=user["email"],
+        name=user.get("name"),
+        tipo=UserRole(user.get("tipo", "cliente")),
+        imobiliaria_id=user.get("imobiliaria_id"),
+        ativo=user.get("ativo", True),
+        created_at=datetime.now()
+    )
+
+    db = get_memory_db()
+    user_id = current_user.get("sub")
+    user = db["users"].get(user_id)
+
+    if not user:
+        raise HTTPException(status_code=404, detail="Usuário não encontrado")
+
+    update_data = profile.model_dump(exclude_none=True)
+
+    if "name" in update_data:
+        user["name"] = update_data["name"]
+    if "phone" in update_data:
+        user["phone"] = update_data["phone"]
+
+    db["users"][user_id] = user
+
+    return UserResponse(
+        id=user["id"],
+        email=user["email"],
+        name=user.get("name"),
+        tipo=UserRole(user.get("tipo", "cliente")),
+        imobiliaria_id=user.get("imobiliaria_id"),
+        ativo=user.get("ativo", True),
+        created_at=datetime.now()
+    )
 
 
 # ===== SISTEMA DE REMOÇÃO DE USUÁRIOS =====
